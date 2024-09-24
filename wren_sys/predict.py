@@ -83,21 +83,20 @@ def predict_one_bag(val_loader, model, bagging, return_pd=False):
         test_targets += test_target.view(-1).tolist()
         test_cif_ids += batch_cif_ids
 
-    if return_pd:
-        return pd.DataFrame(
-            {
-                "test_cif_ids": test_cif_ids,
-                "test_targets": test_targets,
-                "test_preds": test_preds,
-            }
-        )
-    else:
-        import csv
+    # if not return_pd:
+    #     import csv
 
-        with open("test_results_bag_" + str(bagging) + ".csv", "w") as f:
-            writer = csv.writer(f)
-            for cif_id, target, pred in zip(test_cif_ids, test_targets, test_preds):
-                writer.writerow((cif_id, target, pred))
+    #     with open("test_results_bag_" + str(bagging) + ".csv", "w") as f:
+    #         writer = csv.writer(f)
+    #         for cif_id, target, pred in zip(test_cif_ids, test_targets, test_preds):
+    #             writer.writerow((cif_id, target, pred))
+    return pd.DataFrame(
+        {
+            "test_cif_ids": test_cif_ids,
+            "test_targets": test_targets,
+            "test_preds": test_preds,
+        }
+    )
 
 
 def bootstrap_aggregating(bagging_size, prediction=False):
@@ -187,8 +186,35 @@ def predict_model(
             model.load_state_dict(checkpoint["state_dict"])
         else:
             print("=> no model found at '{}'".format(modelpath))
-        if return_pd:
-            results_pd.append(predict_one_bag(test_loader, model, i, return_pd))
-    if return_pd:
-        return results_pd
+        results_pd.append(predict_one_bag(test_loader, model, i, return_pd))
+    # if return_pd:
+    #     return results_pd
     # bootstrap_aggregating(bag, prediction=True)
+    return bootstrap_aggregating_pds(results_pd)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "--model_path", help="model path", type=str)
+    parser.add_argument("-p", "--in_csv_path", help="csv path", type=str)
+    parser.add_argument("-n", "--out_csv_path", help="out out csv path", type=str)
+    args = parser.parse_args()
+    pdout = predict_model(
+        csvpath=args.in_csv_path,
+        model_dir=args.model_path,
+        start_bag=0,
+        bag=56,
+        batch_size=128,
+        workers=2,
+        pin_memory_flag=True,
+        prefetch_factor=2,
+        return_pd=False,
+    )
+    ini = pd.read_csv(args.in_csv_path)
+    ini.sort_values("mpID", inplace=True)
+    pdout.sort_values("ID", inplace=True)
+    ini.insert(1, "CLscore", pdout.iloc[:, 1].to_list())
+    ini.sort_values("CLscore", inplace=True, ascending=False)
+    ini.to_csv(args.out_csv_path, index=False)
