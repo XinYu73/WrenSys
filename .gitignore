@@ -163,3 +163,4 @@ cython_debug/
 
 model_dir/*
 temp*
+.DS_Store
