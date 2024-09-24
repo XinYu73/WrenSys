@@ -1,0 +1,169 @@
+from __future__ import annotations
+
+from typing import Sequence
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import LongTensor, Tensor
+from torch_scatter import scatter_mean
+from aviary.core import BaseModelClass
+from aviary.networks import ResidualNetwork, SimpleNetwork
+from aviary.segments import MessageLayer, WeightedAttentionPooling
+
+
+class DescriptorNetwork(nn.Module):
+    """The Descriptor Network is the message passing section of the Roost model."""
+
+    def __init__(
+        self,
+        elem_emb_len: int,
+        sym_emb_len: int,
+        elem_fea_len: int = 32,
+        sym_fea_len: int = 32,
+        n_graph: int = 3,
+        elem_heads: int = 1,
+        elem_gate: Sequence[int] = (256,),
+        elem_msg: Sequence[int] = (256,),
+        cry_heads: int = 1,
+        cry_gate: Sequence[int] = (256,),
+        cry_msg: Sequence[int] = (256,),
+    ):
+        """Message passing section of the Roost model.
+
+        Args:
+            elem_emb_len (int): Number of features in initial element embedding
+            sym_emb_len (int): Number of features in initial Wyckoff letter embedding
+            elem_fea_len (int, optional): Number of hidden features to use to encode elements.
+                Defaults to 32.
+            sym_fea_len (int, optional): Number of hidden features to use to encode Wyckoff letters.
+                Defaults to 32.
+            n_graph (int, optional): Number of message passing operations to carry out.
+                Defaults to 3.
+            elem_heads (int, optional): Number of parallel attention heads per message passing
+                operation. Defaults to 1.
+            elem_gate (list[int], optional): _description_. Defaults to [256].
+            elem_msg (list[int], optional): _description_. Defaults to [256].
+            cry_heads (int, optional): Number of attention heads. Defaults to 1.
+            cry_gate (list[int], optional): _description_. Defaults to [256].
+            cry_msg (list[int], optional): _description_. Defaults to [256].
+        """
+        super().__init__()
+
+        # apply linear transform to the input to get a trainable embedding
+        # NOTE -1 here so we can add the weights as a node feature
+        self.elem_embed = nn.Linear(elem_emb_len, elem_fea_len)
+        self.sym_embed = nn.Linear(sym_emb_len + 1, sym_fea_len)
+
+        # create a list of Message passing layers
+        fea_len = elem_fea_len + sym_fea_len
+
+        # create a list of Message passing layers
+        self.graphs = nn.ModuleList(
+            MessageLayer(
+                msg_fea_len=fea_len,
+                num_msg_heads=elem_heads,
+                msg_gate_layers=elem_gate,
+                msg_net_layers=elem_msg,
+            )
+            for i in range(n_graph)
+        )
+
+        # define a global pooling function for materials
+        self.cry_pool = nn.ModuleList(
+            WeightedAttentionPooling(
+                gate_nn=SimpleNetwork(fea_len, 1, cry_gate),
+                message_nn=SimpleNetwork(fea_len, fea_len, cry_msg),
+            )
+            for _ in range(cry_heads)
+        )
+
+    def forward(
+        self,
+        elem_weights: Tensor,
+        elem_fea: Tensor,
+        sym_fea: Tensor,
+        self_idx: LongTensor,
+        nbr_idx: LongTensor,
+        cry_elem_idx: LongTensor,
+        aug_cry_idx: LongTensor,
+    ) -> Tensor:
+        """Forward pass
+
+        Args:
+            elem_weights (Tensor): Fractional weight of each Element in its stoichiometry
+            elem_fea (Tensor): Element features of each of the N elements in the batch
+            sym_fea (Tensor): Wyckoff Position features of each of the N elements in the batch
+            self_idx (Tensor): Indices of the first element in each of the M pairs
+            nbr_idx (Tensor): Indices of the second element in each of the M pairs
+            cry_elem_idx (Tensor): Mapping from the elem idx to crystal idx
+            aug_cry_idx (Tensor): Mapping from the crystal idx to augmentation idx
+
+        Returns:
+            Tensor: returns the crystal features of the materials in the batch
+        """
+        # embed the original features into the graph layer description
+        elem_fea = self.elem_embed(elem_fea)
+        sym_fea = self.sym_embed(torch.cat([sym_fea, elem_weights], dim=1))
+
+        elem_fea = torch.cat([elem_fea, sym_fea], dim=1)
+
+        # apply the message passing functions
+        for graph_func in self.graphs:
+            elem_fea = graph_func(elem_weights, elem_fea, self_idx, nbr_idx)
+
+        # generate crystal features by pooling the elemental features
+        head_fea = []
+        for attnhead in self.cry_pool:
+            head_fea.append(
+                attnhead(elem_fea, index=cry_elem_idx, weights=elem_weights)
+            )
+
+        cry_fea = scatter_mean(
+            torch.mean(torch.stack(head_fea), dim=0), aug_cry_idx, dim=0
+        )
+
+        return cry_fea
+
+    def __repr__(self) -> str:
+        return (
+            f"{type(self).__name__}(n_graph={len(self.graphs)}, cry_heads="
+            f"{len(self.cry_pool)}, elem_emb_len={self.elem_emb_len}, "
+            f"sym_emb_len={self.sym_emb_len})"
+        )
+
+
+class ClassificationModel(nn.Module):
+    def __init__(self, get_crys_fea=False) -> None:
+        super().__init__()
+        self.material_nn = DescriptorNetwork(elem_emb_len=200, sym_emb_len=444)
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(64, 32),
+            nn.LeakyReLU(),
+            nn.Linear(32, 2),
+            nn.LogSoftmax(dim=1),
+        )
+        self.get_crys_fea = get_crys_fea
+
+    def forward(
+        self,
+        elem_weights: Tensor,
+        elem_fea: Tensor,
+        sym_fea: Tensor,
+        self_idx: LongTensor,
+        nbr_idx: LongTensor,
+        cry_elem_idx: LongTensor,
+        aug_cry_idx: LongTensor,
+    ) -> Tensor:
+        crys_fea = self.material_nn(
+            elem_weights,
+            elem_fea,
+            sym_fea,
+            self_idx,
+            nbr_idx,
+            cry_elem_idx,
+            aug_cry_idx,
+        )
+        if self.get_crys_fea:
+            return crys_fea
+        return self.linear_relu_stack(crys_fea)
