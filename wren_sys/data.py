@@ -433,7 +433,7 @@ def parse_aflow_wyckoff_str(
 
 
 def collate_batch(
-    samples: tuple[
+    samples: list[
         tuple[Tensor, Tensor, Tensor, LongTensor, LongTensor],
         list[Tensor | LongTensor],
         list[str | int],
