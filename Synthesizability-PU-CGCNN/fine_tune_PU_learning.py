@@ -39,6 +39,12 @@ from cgcnn.model_PU_learning import CrystalGraphConvNet
 parser = argparse.ArgumentParser(
     description="Synthesizability prediction by PU-learning using CGCNN classifier"
 )
+parser.add_argument(
+    "--original_model_dir",
+    default="./trained_models",
+    type=str,
+    help="the model parameters provided by the authors",
+)
 parser.add_argument("--disable-cuda", action="store_true", help="Disable CUDA")
 parser.add_argument(
     "-j",
@@ -281,6 +287,24 @@ def main():
             n_h=args.n_h,
             classification=True,
         )
+        ############################################################################################################
+        # Load the pre-trained model parameters
+        ############################################################################################################
+        old_best_checkpoint = torch.load(
+            os.path.join(
+                args.original_model_dir,
+                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
+            )
+        )
+        model.load_state_dict(old_best_checkpoint["state_dict"])
+        print(
+            "Pre-trained model loaded from %s"
+            % os.path.join(
+                args.original_model_dir,
+                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
+            )
+        )
+
         if args.cuda:
             model.cuda()
 
