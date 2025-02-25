@@ -165,3 +165,5 @@ temp*
 .DS_Store
 *.vasp
 *.pickle
+*.cif
+*.zip
