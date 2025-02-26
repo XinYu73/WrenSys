@@ -85,8 +85,10 @@ if __name__ == "__main__":
     )
     # work_data.to_csv("xxx.csv", index=None)
     pool = multiprocessing.Pool(processes=max_process)
-    for select_group_number in set(group_numbers):
-        for select_composition in set(compositions):
+    group_numbers_set = list(set(group_numbers))
+    compositions_set = list(set(compositions))
+    for select_group_number in group_numbers_set:
+        for select_composition in compositions_set:
             selected_work_data = work_data.loc[
                 (work_data.group_number == select_group_number)
                 & (work_data.compositions == select_composition)
