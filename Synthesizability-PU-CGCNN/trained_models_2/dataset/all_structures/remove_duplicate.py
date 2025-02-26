@@ -57,7 +57,11 @@ if __name__ == "__main__":
         for file in os.listdir(optimization_folder)
         if file.endswith(".cif") or file.endswith(".vasp")
     ]:
-        struct = aaa.get_structure(read(os.path.join(optimization_folder, item)))
+        try:
+            struct = aaa.get_structure(read(os.path.join(optimization_folder, item)))
+        except Exception as e:
+            print(f"{e} occur in loading structure at {item}")
+            continue
         try:
             if dim == 3:
                 sa = SpacegroupAnalyzer(struct, symprec=0.01, angle_tolerance=5)
@@ -79,7 +83,7 @@ if __name__ == "__main__":
             "energy_per_atoms": [0] * len(group_numbers),
         }
     )
-
+    # work_data.to_csv("xxx.csv", index=None)
     pool = multiprocessing.Pool(processes=max_process)
     for select_group_number in set(group_numbers):
         for select_composition in set(compositions):
