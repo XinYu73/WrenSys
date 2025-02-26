@@ -287,23 +287,6 @@ def main():
             n_h=args.n_h,
             classification=True,
         )
-        ############################################################################################################
-        # Load the pre-trained model parameters
-        ############################################################################################################
-        old_best_checkpoint = torch.load(
-            os.path.join(
-                args.original_model_dir,
-                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
-            )
-        )
-        model.load_state_dict(old_best_checkpoint["state_dict"])
-        print(
-            "Pre-trained model loaded from %s"
-            % os.path.join(
-                args.original_model_dir,
-                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
-            )
-        )
 
         if args.cuda:
             model.cuda()
@@ -323,6 +306,24 @@ def main():
             )
         else:
             raise NameError("Only SGD or Adam is allowed as --optim")
+
+        ############################################################################################################
+        # Load the pre-trained model parameters
+        ############################################################################################################
+        old_best_checkpoint = torch.load(
+            os.path.join(
+                args.original_model_dir,
+                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
+            )
+        )
+        model.load_state_dict(old_best_checkpoint["state_dict"])
+        print(
+            "Pre-trained model loaded from %s"
+            % os.path.join(
+                args.original_model_dir,
+                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
+            )
+        )
 
         # optionally resume from a checkpoint
         if args.resume:
