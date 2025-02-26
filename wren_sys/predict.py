@@ -187,6 +187,7 @@ def predict_model(
         else:
             print("=> no model found at '{}'".format(modelpath))
         results_pd.append(predict_one_bag(test_loader, model, i, return_pd))
+        print(results_pd[-1])
     # if return_pd:
     #     return results_pd
     # bootstrap_aggregating(bag, prediction=True)
