@@ -278,18 +278,39 @@ def main():
         structures, _, _ = dataset_train[0]
         orig_atom_fea_len = structures[0].shape[-1]
         nbr_fea_len = structures[1].shape[-1]
+
+        ############################################################################################################
+        # Load the pre-trained model parameters
+        ############################################################################################################
+        old_best_checkpoint = torch.load(
+            os.path.join(
+                args.original_model_dir,
+                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
+            )
+        )
+        optimizer.load_state_dict(old_best_checkpoint["optimizer"])
+        normalizer.load_state_dict(old_best_checkpoint["normalizer"])
+
         model = CrystalGraphConvNet(
             orig_atom_fea_len,
             nbr_fea_len,
-            atom_fea_len=args.atom_fea_len,
-            n_conv=args.n_conv,
-            h_fea_len=args.h_fea_len,
-            n_h=args.n_h,
+            atom_fea_len=old_best_checkpoint["args"].atom_fea_len,
+            n_conv=old_best_checkpoint["args"].n_conv,
+            h_fea_len=old_best_checkpoint["args"].h_fea_len,
+            n_h=old_best_checkpoint["args"].n_h,
             classification=True,
         )
-
         if args.cuda:
             model.cuda()
+        
+        model.load_state_dict(old_best_checkpoint["state_dict"])
+        print(
+            "Pre-trained model loaded from %s"
+            % os.path.join(
+                args.original_model_dir,
+                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
+            )
+        )
 
         # define loss func and optimizer
         criterion = nn.NLLLoss()
@@ -307,25 +328,6 @@ def main():
         else:
             raise NameError("Only SGD or Adam is allowed as --optim")
 
-        ############################################################################################################
-        # Load the pre-trained model parameters
-        ############################################################################################################
-        old_best_checkpoint = torch.load(
-            os.path.join(
-                args.original_model_dir,
-                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
-            )
-        )
-        model.load_state_dict(old_best_checkpoint["state_dict"])
-        optimizer.load_state_dict(old_best_checkpoint["optimizer"])
-        normalizer.load_state_dict(old_best_checkpoint["normalizer"])
-        print(
-            "Pre-trained model loaded from %s"
-            % os.path.join(
-                args.original_model_dir,
-                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
-            )
-        )
 
         # optionally resume from a checkpoint
         if args.resume:
