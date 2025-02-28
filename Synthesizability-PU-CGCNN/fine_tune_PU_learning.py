@@ -288,9 +288,6 @@ def main():
                 "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
             )
         )
-        optimizer.load_state_dict(old_best_checkpoint["optimizer"])
-        normalizer.load_state_dict(old_best_checkpoint["normalizer"])
-
         model = CrystalGraphConvNet(
             orig_atom_fea_len,
             nbr_fea_len,
@@ -304,14 +301,6 @@ def main():
             model.cuda()
         
         model.load_state_dict(old_best_checkpoint["state_dict"])
-        print(
-            "Pre-trained model loaded from %s"
-            % os.path.join(
-                args.original_model_dir,
-                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
-            )
-        )
-
         # define loss func and optimizer
         criterion = nn.NLLLoss()
         if args.optim == "SGD":
@@ -327,8 +316,15 @@ def main():
             )
         else:
             raise NameError("Only SGD or Adam is allowed as --optim")
-
-
+        optimizer.load_state_dict(old_best_checkpoint["optimizer"])
+        normalizer.load_state_dict(old_best_checkpoint["normalizer"])
+        print(
+            "Pre-trained model loaded from %s"
+            % os.path.join(
+                args.original_model_dir,
+                "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
+            )
+        )
         # optionally resume from a checkpoint
         if args.resume:
             if os.path.isfile(args.resume):
