@@ -317,6 +317,8 @@ def main():
             )
         )
         model.load_state_dict(old_best_checkpoint["state_dict"])
+        optimizer.load_state_dict(old_best_checkpoint["optimizer"]
+        normalizer.load_state_dict(old_best_checkpoint["normalizer"]
         print(
             "Pre-trained model loaded from %s"
             % os.path.join(
