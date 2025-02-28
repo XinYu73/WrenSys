@@ -90,6 +90,7 @@ def GetIterator():
 
 def preprocess(inputs):
     cif_id, target = inputs
+    print(cif_id)
     pickle_folder = "./saved_crystal_graph"
     if os.path.exists(pickle_folder + "/" + cif_id + ".pickle"):
         return
