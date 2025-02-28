@@ -70,8 +70,8 @@ for nn, ss in zip(names, synthesizability):
 
 # evaluation
 evaluation = pd.read_csv("../evaluation/evaluation_set.csv", header=None)
-names = train.iloc[:, 0].to_list()
-synthesizability = train.iloc[:, 1].to_list()
+names = evaluation.iloc[:, 0].to_list()
+synthesizability = evaluation.iloc[:, 1].to_list()
 for nn, ss in zip(names, synthesizability):
     if ss == 1:
         if os.path.exists(f"unique_experimental/{nn}.vasp"):
