@@ -317,8 +317,8 @@ def main():
             )
         else:
             raise NameError("Only SGD or Adam is allowed as --optim")
-        optimizer.load_state_dict(old_best_checkpoint["optimizer"])
-        normalizer.load_state_dict(old_best_checkpoint["normalizer"])
+        # optimizer.load_state_dict(old_best_checkpoint["optimizer"])
+        # normalizer.load_state_dict(old_best_checkpoint["normalizer"])
         print(
             "Pre-trained model loaded from %s"
             % os.path.join(
