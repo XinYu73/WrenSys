@@ -288,18 +288,19 @@ def main():
                 "checkpoint_bag_" + str(bagging + 1) + ".pth.tar",
             )
         )
+        model_args = argparse.Namespace(**old_best_checkpoint["args"])
         model = CrystalGraphConvNet(
             orig_atom_fea_len,
             nbr_fea_len,
-            atom_fea_len=old_best_checkpoint["args"].atom_fea_len,
-            n_conv=old_best_checkpoint["args"].n_conv,
-            h_fea_len=old_best_checkpoint["args"].h_fea_len,
-            n_h=old_best_checkpoint["args"].n_h,
+            atom_fea_len=model_args.atom_fea_len,
+            n_conv=model_args.n_conv,
+            h_fea_len=model_args.h_fea_len,
+            n_h=model_args.n_h,
             classification=True,
         )
         if args.cuda:
             model.cuda()
-        
+
         model.load_state_dict(old_best_checkpoint["state_dict"])
         # define loss func and optimizer
         criterion = nn.NLLLoss()
