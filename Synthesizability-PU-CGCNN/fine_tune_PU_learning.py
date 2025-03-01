@@ -350,7 +350,7 @@ def main():
 
             best_mae_error = max(mae_error, best_mae_error)
             args_dict = vars(args)
-            args_dict.update(vars(deepcopy(model_args)))
+            # args_dict.update(vars(deepcopy(model_args)))
             save_checkpoint(
                 {
                     "epoch": epoch + 1,
