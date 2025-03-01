@@ -124,30 +124,6 @@ parser.add_argument(
     metavar="SGD",
     help="choose an optimizer, SGD or Adam, (default: SGD)",
 )
-parser.add_argument(
-    "--atom-fea-len",
-    default=64,
-    type=int,
-    metavar="N",
-    help="number of hidden atom features in conv layers",
-)
-parser.add_argument(
-    "--h-fea-len",
-    default=128,
-    type=int,
-    metavar="N",
-    help="number of hidden features after pooling",
-)
-parser.add_argument(
-    "--n-conv", default=3, type=int, metavar="N", help="number of conv layers"
-)
-parser.add_argument(
-    "--n-h",
-    default=1,
-    type=int,
-    metavar="N",
-    help="number of hidden layers after pooling",
-)
 
 # Bagging size for PU Learning
 parser.add_argument(
@@ -349,7 +325,6 @@ def main():
             "Train/Val/Test in Bagging %d started... ----------------------------------------------------------------------------------------------------------"
             % (bagging + 1)
         )
-
         for epoch in range(args.start_epoch, args.epochs):
             # train for one epoch
             train(train_loader, model, criterion, optimizer, epoch, normalizer)
@@ -373,6 +348,8 @@ def main():
                 best_recall = recall_value
 
             best_mae_error = max(mae_error, best_mae_error)
+            args_dict = vars(args)
+            args_dict.update(vars(model_args))
             save_checkpoint(
                 {
                     "epoch": epoch + 1,
@@ -380,7 +357,7 @@ def main():
                     "best_mae_error": best_mae_error,
                     "optimizer": optimizer.state_dict(),
                     "normalizer": normalizer.state_dict(),
-                    "args": vars(args),
+                    "args": args_dict,
                 },
                 is_best,
                 bagging,
