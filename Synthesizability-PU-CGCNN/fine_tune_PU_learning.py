@@ -13,6 +13,7 @@ import sys
 import time
 import warnings
 from random import sample
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -349,7 +350,7 @@ def main():
 
             best_mae_error = max(mae_error, best_mae_error)
             args_dict = vars(args)
-            args_dict.update(vars(model_args))
+            args_dict.update(vars(deepcopy(model_args)))
             save_checkpoint(
                 {
                     "epoch": epoch + 1,
