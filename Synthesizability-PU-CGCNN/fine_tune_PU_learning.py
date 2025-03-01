@@ -358,7 +358,7 @@ def main():
                     "best_mae_error": best_mae_error,
                     "optimizer": optimizer.state_dict(),
                     "normalizer": normalizer.state_dict(),
-                    "args": args_dict,
+                    "args": vars(model_args),
                 },
                 is_best,
                 bagging,
