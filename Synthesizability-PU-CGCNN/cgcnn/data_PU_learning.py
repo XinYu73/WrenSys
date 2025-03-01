@@ -179,7 +179,6 @@ def split_bagging(id_prop, start, bagging_size, folder):
 
 
 def bootstrap_aggregating(bagging_size, prediction=False):
-
     predval_dict = {}
 
     print("Do bootstrap aggregating for %d models.............." % (bagging_size))

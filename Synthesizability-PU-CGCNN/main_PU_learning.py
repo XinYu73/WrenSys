@@ -198,7 +198,6 @@ def main():
 
     # Train/Valid/Test for all bagging loop
     for bagging in range(args.restart, args.restart + args.bag):
-
         initial_time = time.time()
         best_mae_error = 0
         collate_fn = collate_pool
