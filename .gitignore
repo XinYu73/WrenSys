@@ -167,3 +167,4 @@ temp*
 *.pickle
 *.cif
 *.zip
+debug/
