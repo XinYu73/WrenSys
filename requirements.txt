@@ -1,0 +1,7 @@
+git+https://github.com/CompRhys/aviary.git
+torch==2.4.1
+torch_scatter==2.1.2
+pymatgen
+ase
+scikit-learn==1.5.2
+tqdm==4.66.5
