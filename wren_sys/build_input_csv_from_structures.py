@@ -111,8 +111,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     ds = DataStore()
     pool = multiprocessing.Pool(processes=args.max_process)
+    result = []
     for one_name, one_atoms in structure_loader(args.structure_path, args.name_tag):
-        ds.update(
+        result.append(
             pool.apply_async(
                 one_job,
                 (
@@ -121,8 +122,11 @@ if __name__ == "__main__":
                     0.1,  # symprec
                     5.0,  # angle_tolerance
                 ),
-            ).get()
+            )
         )
     pool.close()
     pool.join()
+
+    for rr in result:
+        ds.update(rr.get())
     ds.to_dataframe(args.output_csv)
