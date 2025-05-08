@@ -61,6 +61,12 @@ parser.add_argument(
     help="Folder name containing cif files and id_prop.csv file",
 )
 
+parser.add_argument(
+    "--preload",
+    action="store_true",
+    help="whether or not load all data into CPU memory before run evaluation models",
+)
+
 args = parser.parse_args(sys.argv[1:])
 
 args.cuda = not args.disable_cuda and torch.cuda.is_available()
@@ -73,6 +79,7 @@ def preload(preload_folder, id_prop_file):
         cif_list = [row[0] for row in reader]
 
     for cif_id in cif_list:
+        print(cif_id)
         with open(preload_folder + "/" + cif_id + ".pickle", "rb") as f:
             data.append(pickle.load(f))
 
@@ -85,11 +92,19 @@ def main():
     model_dir = args.modeldir
     graph_dir = args.graph
     idprop_file_path = os.path.join(args.cifs, "id_prop.csv")
-
+    preload_flag = args.preload
     # Loop for all models
     for i in tqdm(range(1, args.bag + 1)):
         collate_fn = collate_pool
-        dataset_test = preload(preload_folder=graph_dir, id_prop_file=idprop_file_path)
+        if preload_flag:
+            dataset_test = preload(
+                preload_folder=graph_dir, id_prop_file=idprop_file_path
+            )
+        else:
+            from data import CGCNNData
+
+            dataset_test = CGCNNData(graph_dir=graph_dir, id_prop_file=idprop_file_path)
+
         test_loader = DataLoader(
             dataset_test,
             batch_size=args.batch_size,
