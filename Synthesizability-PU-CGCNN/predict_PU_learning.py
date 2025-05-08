@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 import time
+import gc
 
 import numpy as np
 import torch
@@ -109,9 +110,9 @@ def main():
             dataset_test,
             batch_size=args.batch_size,
             shuffle=True,
-            num_workers=args.workers,
+            num_workers=args.workers if not preload_flag else 0,
             collate_fn=collate_fn,
-            pin_memory=args.cuda,
+            pin_memory=args.cuda if not preload_flag else False,
         )
 
         modelpath = os.path.join(model_dir, "checkpoint_bag_" + str(i) + ".pth.tar")
@@ -180,6 +181,7 @@ def validate(val_loader, model, criterion, normalizer, modelnum, test=False):
 
     end = time.time()
     for i, (input, target, batch_cif_ids) in enumerate(val_loader):
+        print(f"batch count {i}")
         with torch.no_grad():
             if args.cuda:
                 input_var = (
@@ -247,6 +249,7 @@ def validate(val_loader, model, criterion, normalizer, modelnum, test=False):
                     auc=auc_scores,
                 )
             )
+        gc.collect()
 
     if test:
         star_label = "**"

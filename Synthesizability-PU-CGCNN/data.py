@@ -22,5 +22,6 @@ class CGCNNData(Dataset):
         return len(self.cif_list)
 
     def __getitem__(self, index):
+        print(self.cif_list[index])
         with open(self.graph_dir + "/" + self.cif_list[index] + ".pickle", "rb") as f:
             return pickle.load(f)
