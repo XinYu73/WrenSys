@@ -7,9 +7,9 @@ Description:
 """
 
 import os
-import pickle
 import argparse
 import multiprocessing
+from itertools import islice
 
 import numpy as np
 import pandas as pd
@@ -24,21 +24,31 @@ aaa = AseAtomsAdaptor()
 from wren_sys.data import get_aflow_label_from_spglib
 
 
-def structure_loader(path, name_tag):
-    if path.endswith(".db"):
-        db = connect(path)
-        for row in db.select():
-            yield (
-                "_".join(row.key_value_pairs[name_tag].split("-")),
-                aaa.get_structure(row.toatoms()),
-            )
-    else:
-        for item in os.listdir(path):
-            if item.endswith(".vasp") or item.endswith(".cif"):
-                yield (
-                    item.split(".")[0],
-                    aaa.get_structure(read(os.path.join(path, item))),
-                )
+# def structure_loader(path, name_tag):
+#     if path.endswith(".db"):
+#         db = connect(path)
+#         for row in db.select():
+#             yield (
+#                 "_".join(row.key_value_pairs[name_tag].split("-")),
+#                 aaa.get_structure(row.toatoms()),
+#             )
+#     else:
+#         for item in os.listdir(path):
+#             if item.endswith(".vasp") or item.endswith(".cif"):
+#                 yield (
+#                     item.split(".")[0],
+#                     aaa.get_structure(read(os.path.join(path, item))),
+#                 )
+
+
+def split_iterable(iterable, n):
+    it = iter(iterable)
+    length = sum(1 for _ in iterable)
+    avg, remainder = divmod(length, n)
+    sizes = [avg + (1 if i < remainder else 0) for i in range(n)]
+
+    for size in sizes:
+        yield list(islice(it, size))
 
 
 class DataStore:
@@ -59,7 +69,7 @@ class DataStore:
             )
             self.targets.append(0)
 
-    def to_dataframe(self, csv_path: str):
+    def to_dataframe(self):
         df = pd.DataFrame(
             {
                 "mpID": self.mpID,
@@ -69,25 +79,39 @@ class DataStore:
                 "target": self.targets,
             }
         )
-        df.to_csv(csv_path, index=False)
+        # df.to_csv(csv_path, index=False)
+        return df
 
 
-def one_job(mpID: str, struct: Structure, symprec: float, angle_tolerance: float):
-    try:
-        (
-            aflow_label_with_chemsys,
-            equivalent_wyckoff_labels_number,
-        ) = get_aflow_label_from_spglib(
-            struct=struct, symprec=symprec, angle_tolerance=angle_tolerance
-        )
-        return {
-            "mpID": mpID,
-            "wyckoff": aflow_label_with_chemsys,
-            "number_of_atoms": int(aflow_label_with_chemsys.split("_")[1][2:]),
-            "equivalent_wyckoff_labels_number": equivalent_wyckoff_labels_number,
-        }
-    except Exception as e:
-        print(f"Error in get_aflow_label_from_spglib: {e}")
+def one_job(
+    structure_path: str, name_list: list, symprec: float, angle_tolerance: float
+)->None|pd.DataFrame:
+    ds = DataStore()
+    for item in name_list:
+        try:
+            (
+                aflow_label_with_chemsys,
+                equivalent_wyckoff_labels_number,
+            ) = get_aflow_label_from_spglib(
+                struct=Structure.from_file(os.path.join(structure_path, item)),
+                symprec=symprec,
+                angle_tolerance=angle_tolerance,
+            )
+            one_pack = {
+                "mpID": item.split(".")[0],
+                "wyckoff": aflow_label_with_chemsys,
+                "number_of_atoms": int(aflow_label_with_chemsys.split("_")[1][2:]),
+                "equivalent_wyckoff_labels_number": equivalent_wyckoff_labels_number,
+            }
+        except Exception as e:
+            print(f"Error in get_aflow_label_from_spglib: {item}")
+            # return None
+            one_pack = None
+
+        ds.update(one_pack=one_pack)
+    if len(ds.mpID) > 0:
+        return ds.to_dataframe()
+    else:
         return None
 
 
@@ -95,11 +119,11 @@ if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--structure_path", help="structure path, or db", default="structure_path"
+        "--structure_path", help="structure path", default="structure_path"
     )
-    parser.add_argument(
-        "--name_tag", help="only for db, the key for name", default="name"
-    )
+    # parser.add_argument(
+    #     "--name_tag", help="only for db, the key for name", default="name"
+    # )
     parser.add_argument(
         "--max_process",
         help="maximum number of process to be used",
@@ -112,13 +136,19 @@ if __name__ == "__main__":
     ds = DataStore()
     pool = multiprocessing.Pool(processes=args.max_process)
     result = []
-    for one_name, one_atoms in structure_loader(args.structure_path, args.name_tag):
+    structure_names = list(
+        filter(
+            lambda x: (x.endswith(".vasp")) or (x.endswith(".cif")),
+            os.listdir(args.structure_path),
+        )
+    )
+    for sub_list in split_iterable(structure_names, args.max_process):
         result.append(
             pool.apply_async(
                 one_job,
                 (
-                    one_name,
-                    one_atoms,
+                    args.structure_path,
+                    sub_list,
                     0.1,  # symprec
                     5.0,  # angle_tolerance
                 ),
@@ -127,6 +157,10 @@ if __name__ == "__main__":
     pool.close()
     pool.join()
 
+    result_pd = []
     for rr in result:
-        ds.update(rr.get())
-    ds.to_dataframe(args.output_csv)
+        out = rr.get()
+        if out is not None:
+            result_pd.append(out)
+
+    pd.concat(result_pd).to_csv(args.output_csv, index=False)
