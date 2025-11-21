@@ -3,7 +3,7 @@ Author: Yu Xin
 Date: 2025-04-08 15:48:59
 LastEditors: Please set LastEditors
 LastEditTime: 2025-04-08 16:32:53
-Description: 
+Description:
 """
 
 import os
@@ -85,7 +85,7 @@ class DataStore:
 
 def one_job(
     structure_path: str, name_list: list, symprec: float, angle_tolerance: float
-)->None|pd.DataFrame:
+) -> None | pd.DataFrame:
     ds = DataStore()
     for item in name_list:
         try:
