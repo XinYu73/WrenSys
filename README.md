@@ -1,4 +1,4 @@
-# Wren_Sys
+# WrenSys
 
 This repository contains the machine-learning part of the work associated with
 https://link.aps.org/doi/10.1103/6t5z-tqym.
