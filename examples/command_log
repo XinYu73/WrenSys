@@ -1,0 +1,26 @@
+for f in *; do [ -f "$f" ] && mv -- "$f" "$f.vasp" ; done
+symmweaver_suite_HT utils python_scripts convert_structure_format --input poscars/ --input_format vasp --output cif_files --output_format cif --cif_symprec 0.1 --cif_angle_tolerance 5 --overwrite
+
+
+python ../../wren_sys/build_input_csv_from_structures.py  --structure_path poscars/ --max_process 2 --output_csv input_wren_sys.csv
+
+cp ../../Synthesizability-PU-CGCNN/trained_models/atom_init.json cif_files/
+
+python ../build_id_prop.py
+
+
+python ../../Synthesizability-PU-CGCNN/generate_crystal_graph.py --cifs ./cif_files --n 12 --r 8 --f ./saved_crystal_graph
+python ../../Synthesizability-PU-CGCNN/predict_PU_learning.py --bag 100 --graph ./saved_crystal_graph --cifs ./cif_files --modeldir ../../Synthesizability-PU-CGCNN/train_models_lr_5/
+
+
+python ../../wren_sys/predict.py -m ../../model_dir -p input_wren_sys.csv -n  output_wren_sys.csv
+
+
+mkdir test_results_prediction_1_100
+
+mv test_results_prediction_*.csv test_results_prediction_1_100
+
+tar -czvf test_results_prediction_1_100.tar.gz test_results_prediction_1_100
+
+rm -r test_results_prediction_1_100 saved_crystal_graph
+
